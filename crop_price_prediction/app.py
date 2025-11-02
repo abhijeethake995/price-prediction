@@ -98,15 +98,18 @@ def load_assets():
     """Loads the model and feature columns list with error handling."""
     global rf_model, ALL_COLUMNS
     try:
-        rf_model = joblib.load('final_crop_price_predictor.joblib')
-        ALL_COLUMNS = joblib.load('feature_columns.joblib')
+        # CORRECTED PATHS for model and feature columns
+        rf_model = joblib.load('crop_price_prediction/final_crop_price_predictor.joblib')
+        ALL_COLUMNS = joblib.load('crop_price_prediction/feature_columns.joblib')
         return rf_model, ALL_COLUMNS
     except FileNotFoundError:
+        st.error("Model or feature columns file not found. Please ensure 'final_crop_price_predictor.joblib' and 'feature_columns.joblib' are in the 'crop_price_prediction/' directory of your repository.")
         # Fallback for display purposes
         ALL_COLUMNS = ['Year', 'Month', 'Day', 'Grade_Encoded', 'District_Pune', 'Commodity_Wheat']
         rf_model = None
         return rf_model, ALL_COLUMNS
-    except Exception:
+    except Exception as e:
+        st.error(f"An unexpected error occurred while loading model assets: {e}")
         # Fallback for display purposes
         ALL_COLUMNS = ['Year', 'Month', 'Day', 'Grade_Encoded', 'District_Pune', 'Commodity_Wheat']
         rf_model = None
@@ -115,179 +118,7 @@ def load_assets():
 
 rf_model, ALL_COLUMNS = load_assets()
 
-# --- 2. DEFINE OPTIONS AND UTILITY FUNCTIONS ---
-if 'ALL_COLUMNS' not in locals():
-    # Fallback definition if loading failed
-    ALL_COLUMNS = ['Year', 'Month', 'Day', 'Grade_Encoded', 'District_Pune', 'Commodity_Wheat']
-
-# Safely extract options even if ALL_COLUMNS is minimal
-raw_districts = [col.split('District_')[1] for col in ALL_COLUMNS if col.startswith('District_')]
-raw_commodities = [col.split('Commodity_')[1] for col in ALL_COLUMNS if col.startswith('Commodity_')]
-
-DISTRICT_OPTIONS = ['Select District...'] + sorted(raw_districts)
-COMMODITY_OPTIONS = ['Select Commodity...'] + sorted(raw_commodities)
-
-
-def get_monthly_forecast(district, commodity, year, grade):
-    """Generates 12 monthly predictions for the chart."""
-    forecasts = []
-
-    if not rf_model:
-        # Fallback to dummy data if model failed to load
-        return pd.DataFrame({
-            'Month': range(1, 13),
-            'Price': [random.uniform(3000, 5000) + i * 50 for i in range(12)],
-            'Date': pd.to_datetime([f'{year}-{month}-01' for month in range(1, 13)]),
-            'District': [district] * 12
-        })
-
-    for month in range(1, 13):
-        input_data = pd.Series(0, index=ALL_COLUMNS)
-        input_data['Year'], input_data['Month'], input_data['Day'], input_data['Grade_Encoded'] = year, month, 1, grade
-
-        district_col_name = f'District_{district}'
-        commodity_col_name = f'Commodity_{commodity}'
-
-        if district_col_name in ALL_COLUMNS: input_data[district_col_name] = 1
-        if commodity_col_name in ALL_COLUMNS: input_data[commodity_col_name] = 1
-
-        input_df = pd.DataFrame([input_data])
-        predicted_price = rf_model.predict(input_df)[0]
-
-        forecasts.append({
-            'Month': month,
-            'Price': predicted_price,
-            'Date': pd.to_datetime(f'{year}-{month}-01'),
-            'District': district
-        })
-
-    return pd.DataFrame(forecasts)
-
-
-def get_comparison_data(commodity, year, grade, main_district, all_districts, base_forecast_df):
-    """Generates price data for comparison districts (using actual data for main district)."""
-    comparison_data = []
-
-    # Select up to 2 random other districts
-    other_districts = [d for d in all_districts if d != main_district]
-    num_to_sample = min(2, len(other_districts))
-    comp_districts = random.sample(other_districts, num_to_sample)
-    comp_districts.append(main_district)
-
-    for district in comp_districts:
-        if district == main_district:
-            df = base_forecast_df.copy()
-        else:
-            # Generate the 12-month forecast for the comparison district
-            df = get_monthly_forecast(district, commodity, year, grade)
-
-            # Simple simulation offset if the prices are identical
-            if rf_model and df['Price'].iloc[0] == base_forecast_df['Price'].iloc[0]:
-                df['Price'] = df['Price'] + random.uniform(-100, 100)
-
-        df['District'] = district
-        comparison_data.append(df)
-
-    combined_df = pd.concat(comparison_data)
-    combined_df['Price'] = combined_df['Price'].round(0).astype(int)
-
-    return combined_df
-
-
-# --- NAVIGATION BAR FUNCTION ---
-def draw_navbar():
-    """Draws a horizontal navigation bar at the top of the screen."""
-
-    st.markdown("""
-        <div class='navbar-container'>
-    """, unsafe_allow_html=True)
-
-    nav_cols = st.columns([1, 1, 1, 5])
-
-    with nav_cols[0]:
-        if st.button("🏠 Home", key='nav_home', type='secondary'):
-            st.session_state.page = 'welcome'
-            st.rerun()
-
-    with nav_cols[1]:
-        btn_type = 'primary' if st.session_state.page == 'dashboard' else 'secondary'
-        if st.button("📈 Dashboard", key='nav_dashboard', type=btn_type):
-            st.session_state.page = 'dashboard'
-            st.rerun()
-
-    with nav_cols[2]:
-        btn_type = 'primary' if st.session_state.page == 'results' and st.session_state.results else 'secondary'
-        disabled_state = not st.session_state.results
-        if st.button("✅ Results", key='nav_results', type=btn_type, disabled=disabled_state):
-            st.session_state.page = 'results'
-            st.rerun()
-
-    with nav_cols[3]:
-        st.markdown(
-            f"<h3 style='color:{ACCENT_GREEN}; text-align: right; margin: 0;'>Crop Price Estimation for Farmers (Crop Price Forecast)</h3>",
-            unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-
-# --- 3. WELCOME SCREEN FUNCTION (Stacked Images) ---
-def show_welcome_screen():
-    # Changed st.title to st.header for better fit
-    st.header(f"🌾 Smart Farming, Double Profit! (Smart Farming, Double Profit!)")
-
-    # Attractive Marathi Quote
-    st.markdown(f"""
-        <div style='padding: 10px; border-radius: 8px; background-color: {HIGHLIGHT_COLOR}; border-left: 5px solid {ACCENT_GREEN}; margin-bottom: 20px;'>
-            <h4 style='color: #333; margin: 0;'>                      "He who makes decisions on time is the one who succeeds.."  </h4>
-            <p style='margin: 0; font-size: 0.7em; color: #666;'>— This tool helps you decide on time.</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # Layout for stacked images (1.5 wide) and text (3 wide)
-    img_col, text_col = st.columns([1.5, 3])
-
-    with img_col:
-        # Custom container for stacked images
-        st.markdown('<div class="stacked-images-container">', unsafe_allow_html=True)
-
-        # Image 1 (Original)
-        try:
-            st.image("crop_price_prediction/crop_page1.jpg", use_container_width=True,
-                     caption="Information-Based Planning.")
-        except:
-            st.warning("Image 'crop_price_prediction/crop_page1.jpg' not found.")
-            st.image("https://placehold.co/400x200/8bc34a/ffffff?text=Farming+Strategy", use_container_width=True)
-
-        # Image 2 (NEW, stacked below Image 1)
-        try:
-            st.image("crop_price_prediction/crop1.jpeg", use_container_width=True, caption="Earn Maximum Profit.")
-        except:
-            st.image("https://placehold.co/400x200/4CAF50/ffffff?text=Data+Overview", use_container_width=True,
-                     caption="Maximize profits.")
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with text_col:
-        st.markdown(f"""
-        ## 💰 Accurate Market Information in Your Hands
-Estimate the market price of your produce before sowing or selling your crop. Now, conquer with information!
-
-Why Predict?
-Optimal Timing: Identify the best month to sell your crop.
-
-Market Strategy: Understand the Price Trends that affect your produce.
-
-Income Certainty: Plan your finances with a clear Projected Income.
-
-All forecasts are provided in certified market units: ₹ per quintal (100 kg).
-        """)
-
-        if st.button("▶️Start: Price Forecast Dashboard", type="primary", use_container_width=True):
-            st.session_state.page = 'dashboard'
-            st.rerun()
-
+# ... (rest of the code is unchanged until show_prediction_dashboard) ...
 
 # --- 4. PREDICTION DASHBOARD FUNCTION (Stacked Images) ---
 def show_prediction_dashboard():
@@ -307,10 +138,11 @@ def show_prediction_dashboard():
 
         # Image 1 (Original)
         try:
-            st.image("crop_price_prediction/crop_price_prediction/crop2.jpg", use_container_width=True,
+            # CORRECTED PATH: Removed double 'crop_price_prediction/'
+            st.image("crop_price_prediction/crop2.jpg", use_container_width=True,
                      caption="Select Your Specific Criteria.")
         except:
-            st.warning("Image 'crop2.jpg' not found.")
+            st.warning("Image 'crop_price_prediction/crop2.jpg' not found. Using placeholder.")
             st.image("https://placehold.co/400x200/9ccc65/ffffff?text=Input+Parameters", use_container_width=True)
 
         # Image 2 (NEW, stacked below Image 1)
@@ -548,9 +380,10 @@ def show_results_screen():
     # --- ROW 3: FINAL IMAGE (Ensuring this stays) ---
     st.markdown("#### Future-Proof Your Agriculture. 🚀")
     try:
-        st.image("crop_last.jpg", use_container_width=True, caption="Informed decisions are key to profitability.")
+        # CORRECTED PATH
+        st.image("crop_price_prediction/crop_last.jpg", use_container_width=True, caption="Informed decisions are key to profitability.")
     except:
-        st.warning("Image 'crop_last.jpg' not found. Using placeholder.")
+        st.warning("Image 'crop_price_prediction/crop_last.jpg' not found. Using placeholder.")
         st.image("https://placehold.co/800x400/9ccc65/ffffff?text=Informed+Decisions",
                  use_container_width=True, caption="Placeholder: Informed decisions")
 
@@ -561,7 +394,7 @@ def show_results_screen():
 try:
     st.markdown(
         f"""
-        <img src='top.jpeg' class='header-image' alt='App Header Image'>
+        <img src='crop_price_prediction/top.jpeg' class='header-image' alt='App Header Image'>
         """,
         unsafe_allow_html=True
     )
@@ -576,6 +409,3 @@ elif st.session_state.page == 'dashboard':
     show_prediction_dashboard()
 elif st.session_state.page == 'results':
     show_results_screen()
-
-
-
