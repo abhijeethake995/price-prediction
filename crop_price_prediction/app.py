@@ -254,7 +254,7 @@ def show_welcome_screen():
 
         # Image 1 (Original)
         try:
-            st.image("crop_page1.jpg", use_container_width=True,
+            st.image("crop_page1.jpeg", use_container_width=True,
                      caption="Information-Based Planning.")
         except:
             st.warning("Image 'crop_page1.jpg' not found.")
@@ -576,3 +576,4 @@ elif st.session_state.page == 'dashboard':
     show_prediction_dashboard()
 elif st.session_state.page == 'results':
     show_results_screen()
+
