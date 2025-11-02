@@ -254,15 +254,15 @@ def show_welcome_screen():
 
         # Image 1 (Original)
         try:
-            st.image("crop_page1.jpg", use_container_width=True,
+            st.image("crop_price_prediction/crop_page1.jpg", use_container_width=True,
                      caption="Information-Based Planning.")
         except:
-            st.warning("Image 'crop_page1.jpg' not found.")
+            st.warning("Image 'crop_price_prediction/crop_page1.jpg' not found.")
             st.image("https://placehold.co/400x200/8bc34a/ffffff?text=Farming+Strategy", use_container_width=True)
 
         # Image 2 (NEW, stacked below Image 1)
         try:
-            st.image("crop1.jpeg", use_container_width=True, caption="Earn Maximum Profit.")
+            st.image("crop_price_prediction/crop1.jpeg", use_container_width=True, caption="Earn Maximum Profit.")
         except:
             st.image("https://placehold.co/400x200/4CAF50/ffffff?text=Data+Overview", use_container_width=True,
                      caption="Maximize profits.")
@@ -307,7 +307,7 @@ def show_prediction_dashboard():
 
         # Image 1 (Original)
         try:
-            st.image("crop2.jpg", use_container_width=True,
+            st.image("crop_price_prediction/crop_price_prediction/crop2.jpg", use_container_width=True,
                      caption="Select Your Specific Criteria.")
         except:
             st.warning("Image 'crop2.jpg' not found.")
@@ -315,7 +315,7 @@ def show_prediction_dashboard():
 
         # Image 2 (NEW, stacked below Image 1)
         try:
-            st.image("crop_page2.jpg", use_container_width=True, caption="Data-Based Analysis.")
+            st.image("crop_price_prediction/crop_page2.jpg", use_container_width=True, caption="Data-Based Analysis.")
         except:
             st.image("https://placehold.co/400x200/1E90FF/ffffff?text=Data+Driven+Insights", use_container_width=True,
                      caption="Analyze market data.")
@@ -576,5 +576,6 @@ elif st.session_state.page == 'dashboard':
     show_prediction_dashboard()
 elif st.session_state.page == 'results':
     show_results_screen()
+
 
 
